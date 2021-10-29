@@ -1,0 +1,5 @@
+venv/
+.idea
+hPDE_optimization/src/optimization/opt_elastic/opt_output
+*checkpoint.ipynb
+*.pyc
