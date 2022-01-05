@@ -7,7 +7,7 @@ FEniCS tutorial demo program: Deflection of a membrane.
 The load p is a Gaussian function centered at (0, 0.6).
 """
 
-from __future__ import print_function
+# from __future__ import print_function
 from fenics import *
 from mshr import *
 import numpy as np
@@ -69,5 +69,5 @@ plt.savefig('poisson_membrane/curves.pdf')
 plt.savefig('poisson_membrane/curves.png')
 
 # Hold plots
-interactive()
+# interactive()
 plt.show()

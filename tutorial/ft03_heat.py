@@ -10,7 +10,7 @@ Test problem is chosen to give an exact solution at all nodes of the mesh.
   f = beta - 2 - 2*alpha
 """
 
-from __future__ import print_function
+# from __future__ import print_function
 from fenics import *
 import numpy as np
 

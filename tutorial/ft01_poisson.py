@@ -9,12 +9,12 @@ Test problem is chosen to give an exact solution at all nodes of the mesh.
     f = -6
 """
 
-from __future__ import print_function
+# from __future__ import print_function
 from fenics import *
 import matplotlib.pyplot as plt
 
 # Create mesh and define function space
-mesh = UnitSquareMesh(8, 8)
+mesh = UnitSquareMesh(8, 8, 'crossed')
 V = FunctionSpace(mesh, 'P', 1)
 
 # Define boundary condition
