@@ -11,11 +11,17 @@ def readUnstructuredGrid(filename) -> vtk.vtkUnstructuredGrid:
 	reader.Update()
 	return reader.GetOutput()
 	
-forward_file="/home/sven/exa/adjoint/forward/output/pointsource-2.vtk"
-adjoint_file="/home/sven/exa/adjoint/adjoint/outputA/adaptive2a-10.vtk"
+forward_file="/home/sven/exa/adjoint/forward/output/pointsource-20.vtk"
+adjoint_file="/home/sven/exa/adjoint/adjoint/outputA/adaptive-20.vtk"
 
 data=readUnstructuredGrid(forward_file)
 adj=readUnstructuredGrid(adjoint_file)
+
+#TODO check bounds and timestamps
+
+
+
+
 
 pts:vtk.vtkPoints=data.GetPoints()
 
@@ -37,19 +43,34 @@ interp.SetInputData(pointsset)
 interp.SetSourceData(adj)
 interp.SetKernel(gaussian_kernel)
 interp.Update()
-result:vtk.vtkUnstructuredGrid=interp.GetOutput()#TODO use pipelines
+adj_interpolated:vtk.vtkUnstructuredGrid=interp.GetOutput()#TODO use pipelines
 
 # result.SetCells(data.GetCellTypesArray(),data.GetCells())
 
+x=np.ones(3)*1.2
+y=np.ones(3)*1.2
+for i in range(data.GetNumberOfPoints()):
+	data.GetPoint(i,x)
+	adj_interpolated.GetPoint(i,y)
+	assert (x==y).all()
 
+pointdata=data.GetPointData()
+vtkQ=pointdata.GetArray('Q')
+fQ=numpy_support.vtk_to_numpy(vtkQ)
 
+pointdata=adj_interpolated.GetPointData()
+vtkQ=pointdata.GetArray('Q')
+aQ=numpy_support.vtk_to_numpy(vtkQ)
 
+magnitude=np.abs(np.sum(fQ*aQ,axis=1)) #scalar product for each point)
 
+#! this reuses the previous pointset
+pointsset.GetPointData().AddArray(numpy_support.numpy_to_vtk(magnitude)) #TODO set name
+pointsset.SetCells(data.GetCellTypesArray(),data.GetCells()) 
 
-
-
-# writer:vtk.vtkUnstructuredGridWriter =vtk.vtkUnstructuredGridWriter()
-# writer.SetFileName("test2a.vtk")
-# writer.SetInputData(result)
-# # writer.SetInputConnection(0,interp.GetOutputPort(0))
-# writer.Write()
+a=0
+writer:vtk.vtkUnstructuredGridWriter =vtk.vtkUnstructuredGridWriter()
+writer.SetFileName("magnitude.vtk")
+writer.SetInputData(pointsset)
+# writer.SetInputConnection(0,interp.GetOutputPort(0))
+writer.Write()
