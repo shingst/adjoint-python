@@ -1,7 +1,8 @@
 import vtkmodules.all as vtk
 import numpy as np
 from vtkmodules.util import numpy_support
-
+import os
+from pathlib import Path
 
 def readUnstructuredGrid(filename) -> vtk.vtkUnstructuredGrid:
 	reader=vtk.vtkUnstructuredGridReader()
@@ -21,7 +22,7 @@ def plot_numpy_array(arr, ugrid):
 	# pointsset.GetPointData().AddArray(magdata) #TODO set name
 	ugrid.GetPointData().SetActiveScalars('Magnitude')
 	ugrid.GetPointData().SetScalars(magdata)
-	ugrid.SetCells(data.GetCellTypesArray(), data.GetCells())
+	# ugrid.SetCells(data.GetCellTypesArray(), data.GetCells())
 
 	mapper: vtk.vtkDataSetMapper=vtk.vtkDataSetMapper()
 	mapper.SetInputData(ugrid)
@@ -48,67 +49,88 @@ def plot_numpy_array(arr, ugrid):
 	interactor.Start()
 
 
-forward_file="/home/sven/exa/adjoint/forward/output/pointsource-30.vtk"
-adjoint_file="/home/sven/exa/adjoint/adjoint/outputA/constsource-60.vtk"
+def interpolate(fwdPoints:vtk.vtkUnstructuredGrid,adj:vtk.vtkUnstructuredGrid)-> vtk.vtkUnstructuredGrid:
+	gaussian_kernel=vtk.vtkGaussianKernel()
+	gaussian_kernel.SetSharpness(4)
+	gaussian_kernel.SetRadius(1)
 
-data=readUnstructuredGrid(forward_file)
-adj=readUnstructuredGrid(adjoint_file)
-
-#TODO check bounds and timestamps
-
-
-
-
-
-pts:vtk.vtkPoints=data.GetPoints()
-
-onlypoints:vtk.vtkUnstructuredGrid=vtk.vtkUnstructuredGrid()
-onlypoints.SetPoints(pts)
+	interp=vtk.vtkPointInterpolator()
+	interp.SetInputData(fwdPoints)
+	interp.SetSourceData(adj)
+	interp.SetKernel(gaussian_kernel)
+	interp.Update()
+	return interp.GetOutput()  #TODO use pipelines
 
 
-# writer:vtk.vtkUnstructuredGridWriter =vtk.vtkUnstructuredGridWriter()
-# writer.SetFileName("ps.vtk")
-# writer.SetInputData(pointsset)
-# writer.Write()
+def handle_two_files(forward_file,adjoint_file):
+	data=readUnstructuredGrid(forward_file)
+	adj=readUnstructuredGrid(adjoint_file)
 
-gaussian_kernel = vtk.vtkGaussianKernel()
-gaussian_kernel.SetSharpness(4)
-gaussian_kernel.SetRadius(1)
+	#TODO check bounds and timestamps
 
-interp=vtk.vtkPointInterpolator()
-interp.SetInputData(onlypoints)
-interp.SetSourceData(adj)
-interp.SetKernel(gaussian_kernel)
-interp.Update()
-adj_interpolated:vtk.vtkUnstructuredGrid=interp.GetOutput()#TODO use pipelines
+	pts: vtk.vtkPoints=data.GetPoints()
+
+	onlypoints: vtk.vtkUnstructuredGrid=vtk.vtkUnstructuredGrid()
+	onlypoints.SetPoints(pts)
+
+	adj_interpolated: vtk.vtkUnstructuredGrid=interpolate(onlypoints, adj)  #TODO use pipelines
+
+	pointdata: vtk.vtkPointData=data.GetPointData()
+	vtkQ=pointdata.GetArray('Q')
+	fQ=numpy_support.vtk_to_numpy(vtkQ)
+
+	pointdata: vtk.vtkPointData=adj_interpolated.GetPointData()
+	vtkQ=pointdata.GetArray('Q')
+	aQ=numpy_support.vtk_to_numpy(vtkQ)
+
+	magnitude=np.abs(np.sum(fQ*aQ, axis=1))  #scalar product for each point)
+	impact=np.log10(magnitude+1e-9)
+	# impact=magnitude
+
+	onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())#needed for visualization
+	return impact,onlypoints
+
+# fws=list((Path("/home/sven/exa/adjoint/forward/output/")).glob("pointsource-*.vtk"))
+# fws=os.listdir("/home/sven/exa/adjoint/forward/output/")
+numfiles=35
+#TODO better file reading
+forward_file="/home/sven/exa/adjoint/forward/output/pointsource-10.vtk"
+adjoint_file="/home/sven/exa/adjoint/adjoint/outputA/adaptive2a-20.vtk"
+
+if True:
+	for i in range(1,numfiles):
+		forward_file=f"/home/sven/exa/adjoint/forward/output/pointsource-{i}.vtk"
+		adjoint_file_file=f"/home/sven/exa/adjoint/adjoint/outputA/constsource-{numfiles-i}.vtk"
+		impact, onlypoints=handle_two_files(forward_file, adjoint_file)
+		i_normalized=impact/impact.max()
+		if i==1:
+			refine=np.zeros(impact.size)
+		refine=np.logical_or(refine, i_normalized>0.9)
+		
 
 # result.SetCells(data.GetCellTypesArray(),data.GetCells())
 
-x=np.ones(3)*1.2
-y=np.ones(3)*1.2
-for i in range(data.GetNumberOfPoints()):
-	data.GetPoint(i,x)
-	adj_interpolated.GetPoint(i,y)
-	assert (x==y).all()
-
-pointdata:vtk.vtkPointData=data.GetPointData()
-vtkQ=pointdata.GetArray('Q')
-fQ=numpy_support.vtk_to_numpy(vtkQ)
-
-pointdata:vtk.vtkPointData=adj_interpolated.GetPointData()
-vtkQ=pointdata.GetArray('Q')
-aQ=numpy_support.vtk_to_numpy(vtkQ)
-
-magnitude=np.abs(np.sum(fQ*aQ,axis=1)) #scalar product for each point)
+# x=np.ones(3)*1.2
+# y=np.ones(3)*1.2
+# for i in range(data.GetNumberOfPoints()):
+# 	data.GetPoint(i,x)
+# 	adj_interpolated.GetPoint(i,y)
+# 	assert (x==y).all()
 
 
-impact=np.log10(magnitude+1e-9)
+
+
+
 
 # i_normalized=impact/impact.max()
 # refine=i_normalized>0.7
 # plot_numpy_array(refine.astype(int),onlypoints)#! warning alters onlypoints
 
-plot_numpy_array(impact,onlypoints)#! warning alters onlypoints
+
+# impact,onlypoints=handle_two_files(forward_file,adjoint_file)
+# i_normalized=impact/impact.max()
+# refine=i_normalized>0.7
+plot_numpy_array(refine.astype(int),onlypoints)#! warning alters onlypoints
 
 
 a=0

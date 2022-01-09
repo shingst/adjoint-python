@@ -2,14 +2,20 @@ import vtkmodules.all as vtk
 import numpy as np
 from vtkmodules.util import numpy_support
 
+def readUnstructuredGrid(filename) -> vtk.vtkUnstructuredGrid:
+	reader=vtk.vtkUnstructuredGridReader()
+	reader.SetFileName(filename)
+	reader.ReadAllVectorsOn()
+	reader.ReadAllScalarsOn()
+	reader.Update()
+	return reader.GetOutput()
 
-reader = vtk.vtkUnstructuredGridReader()
 filename="/home/sven/exa/adjoint/forward/output/pointsource-2.vtk"
-reader.SetFileName(filename)
-reader.ReadAllVectorsOn()
-reader.ReadAllScalarsOn()
-reader.Update()
-data:vtk.vtkUnstructuredGrid = reader.GetOutput()
+filename2="/home/sven/exa/adjoint/forward/output/pointsource-20.vtk"
+
+data=readUnstructuredGrid(filename)
+data2=readUnstructuredGrid(filename2)
+
 cells=data.GetCells()
 ncells=cells.GetNumberOfCells()
 
@@ -17,12 +23,14 @@ n_points=data.GetNumberOfPoints()
 
 pts:vtk.vtkPoints=data.GetPoints()
 
-pointsset:vtk.vtkUnstructuredGrid=vtk.vtkUnstructuredGrid()
-pointsset.SetPoints(pts)
+# pointsset:vtk.vtkUnstructuredGrid=vtk.vtkUnstructuredGrid()
+# pointsset.SetPoints(pts)
 x=np.ones(3)*1.2
-for i in range(10):
-	pointsset.GetPoint(i,x)
-	print(x)
+y=np.ones(3)*1.2
+for i in range(data.GetNumberOfPoints()):
+	data.GetPoint(i,x)
+	data2.GetPoint(i,y)
+	assert (x==y).all()
 
 # pts:vtk.vtkPoints=data.GetPoints()
 pointdata=data.GetPointData()
