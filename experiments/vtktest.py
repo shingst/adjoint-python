@@ -37,14 +37,41 @@ pointdata=data.GetPointData()
 vtkQ=pointdata.GetArray('Q')
 Q=numpy_support.vtk_to_numpy(vtkQ)
 
+impact=np.log10(Q+1e-9)
+i_normalized=impact/impact.max()
 
-for i in range(5):
-	mx=np.argmax(Q[:,i])
-	mn=np.argmin(Q[:,i])
-	data.GetPoint(mn, x)
-	print(f"max Q[:,{i}] location {x},{mx}")
-	data.GetPoint(mx, x)
-	print(f"min Q[:,{i}] location {x},{mn}")
+def points_to_cartetsian(ptsvtk:vtk.vtkPoints, refine:np.ndarray, xsize, ysize)->np.ndarray:
+	ret=np.zeros((xsize,ysize))
+	x0,xmax,y0,ymax,_,_=ptsvtk.GetBounds()
+	# xstride=(xmax-x0)/xsize
+	# ystride=(ymax-y0)/ysize
+	# xstart=x0+xstride/2
+	# ystart=y0+ystride/2
+	pts=numpy_support.vtk_to_numpy(ptsvtk.GetData())
+	pts[:,0]-=x0 #sets lower bound to zero
+	pts[:,0]*=xsize/(xmax-x0)# sets bounds to [0,xsize]
+	idx=np.floor(pts).astype(int)
+	idx[pts==xsize]-=1
+	for i in range(idx.shape[0]):
+		ret[idx[i,0],idx[i,1]]=np.maximum(ret[idx[i,0],idx[i,1]],refine[i,0])
+	
+	return ret
+	
+	
+points_to_cartetsian(pts,Q,10,10)
+
+
+
+
+
+
+# for i in range(5):
+# 	mx=np.argmax(Q[:,i])
+# 	mn=np.argmin(Q[:,i])
+# 	data.GetPoint(mn, x)
+# 	print(f"max Q[:,{i}] location {x},{mx}")
+# 	data.GetPoint(mx, x)
+# 	print(f"min Q[:,{i}] location {x},{mn}")
 print("tmp")
 
 

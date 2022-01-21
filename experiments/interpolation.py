@@ -140,8 +140,32 @@ def adjoint_over_time(forward_template:Template,adjoint_template:Template,start,
 	return adjoints
 
 
-
-
+def points_to_cartetsian(ptsvtk:vtk.vtkPoints, refine:np.ndarray, xsize, ysize) -> np.ndarray:
+	"""
+	nearest neighbor interpolation
+	:param ptsvtk: #! gets changed
+	:param refine: 
+	:param xsize: 
+	:param ysize: 
+	:return: 
+	"""
+	ret=np.zeros((xsize,ysize))
+	x0,xmax,y0,ymax,_,_=ptsvtk.GetBounds()
+	# xstride=(xmax-x0)/xsize
+	# ystride=(ymax-y0)/ysize
+	# xstart=x0+xstride/2
+	# ystart=y0+ystride/2
+	pts=numpy_support.vtk_to_numpy(ptsvtk.GetData()).copy()
+	pts[:,0]-=x0 #sets lower bound to zero
+	pts[:,0]*=xsize/(xmax-x0)# sets bounds to [0,xsize]
+	pts[:, 1]-=y0  #sets lower bound to zero
+	pts[:, 1]*=ysize/(ymax-y0)  # sets bounds to [0,xsize]
+	idx=np.floor(pts).astype(int)
+	idx[pts[:,0]==xsize,0]-=1
+	idx[pts[:,1]==ysize,1]-=1
+	for i in range(idx.shape[0]):
+		ret[idx[i,0],idx[i,1]]=np.maximum(ret[idx[i,0],idx[i,1]],refine[i])
+	return  ret
 
 
 
@@ -167,6 +191,9 @@ if False:
 		refine+=(i_normalized>0.9).astype(int)
 		
 		
+def refine_steps(refine:np.ndarray,inorm:np.ndarray):
+	np.maximum(np.floor(inorm*10)/10,refine,refine)
+		
 forward_file=Template("/home/sven/exa/adjoint/forward/output/pointsource-$file.vtk")
 adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/constsource-$file.vtk")
 
@@ -183,16 +210,21 @@ for i in range(1,89):
 		magnitude=np.abs(np.sum(fQ*adjoints[j,:,:], axis=1))  #scalar product for each point)
 		impact=np.log10(magnitude+1e-9)
 		i_normalized=impact/impact.max()
-		if j==0:
+		if j==0 and i==1:
 			refine=np.zeros(impact.size)
 		# refine+=(i_normalized>0.9).astype(int)
-		refine=np.logical_or(refine, i_normalized>0.9)
+		# refine=np.logical_or(refine, i_normalized>0.9)
+		refine_steps(refine,i_normalized)
 		aa=1
-	onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
-	write_numpy_array(refine.astype(int),onlypoints,f"outputE/version1-{i}.vtk")
-	if i==3:break
-	# plot_numpy_array(refine.astype(int), onlypoints)
-		
+onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
+	# write_numpy_array(refine,onlypoints,f"outputE/version2-{i}.vtk")
+plot_numpy_array(refine, onlypoints)
+ref=points_to_cartetsian(data.GetPoints(),refine,25,25)
+np.save("outputE/test4.npy", (ref>0.9).astype(int)) #TODO maybe use smaller int
+a=0
+
+	
+	# np.savetxt("test2.txt", ref, '%f', header=str(ref.shape))
 		
 
 		
@@ -219,7 +251,7 @@ for i in range(1,89):
 # impact,onlypoints=handle_two_files(forward_file,adjoint_file)
 # i_normalized=impact/impact.max()
 # refine=i_normalized>0.7
-plot_numpy_array(refine.astype(int),onlypoints)#! warning alters onlypoints
+# plot_numpy_array(refine.astype(int),onlypoints)#! warning alters onlypoints
 
 
 a=0
