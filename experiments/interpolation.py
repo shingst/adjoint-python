@@ -4,6 +4,7 @@ from vtkmodules.util import numpy_support
 import os
 from pathlib import Path
 from string import Template
+import sys
 
 def readUnstructuredGrid(filename) -> vtk.vtkUnstructuredGrid:
 	reader=vtk.vtkUnstructuredGridReader()
@@ -70,7 +71,7 @@ def plot_numpy_array(arr, ugrid_to_copy):
 	renderer.SetBackground(0.1, 0.1, 0.4)
 
 	window.Render()
-	interactor.Start()
+	# interactor.Start()
 
 
 def interpolate(fwdPoints:vtk.vtkUnstructuredGrid,adj:vtk.vtkUnstructuredGrid)-> vtk.vtkUnstructuredGrid:
@@ -149,7 +150,7 @@ def points_to_cartetsian(ptsvtk:vtk.vtkPoints, refine:np.ndarray, xsize, ysize) 
 	:param ysize: 
 	:return: 
 	"""
-	ret=np.zeros((xsize,ysize))
+	ret=np.zeros((xsize,ysize)).astype(int)
 	x0,xmax,y0,ymax,_,_=ptsvtk.GetBounds()
 	# xstride=(xmax-x0)/xsize
 	# ystride=(ymax-y0)/ysize
@@ -158,7 +159,7 @@ def points_to_cartetsian(ptsvtk:vtk.vtkPoints, refine:np.ndarray, xsize, ysize) 
 	pts=numpy_support.vtk_to_numpy(ptsvtk.GetData()).copy()
 	pts[:,0]-=x0 #sets lower bound to zero
 	pts[:,0]*=xsize/(xmax-x0)# sets bounds to [0,xsize]
-	pts[:, 1]-=y0  #sets lower bound to zero
+	pts[:, 1]-=y0  #sets lower bound to zero 
 	pts[:, 1]*=ysize/(ymax-y0)  # sets bounds to [0,xsize]
 	idx=np.floor(pts).astype(int)
 	idx[pts[:,0]==xsize,0]-=1
@@ -167,61 +168,79 @@ def points_to_cartetsian(ptsvtk:vtk.vtkPoints, refine:np.ndarray, xsize, ysize) 
 		ret[idx[i,0],idx[i,1]]=np.maximum(ret[idx[i,0],idx[i,1]],refine[i])
 	return  ret
 
-
-
-
-
-
-# fws=list((Path("/home/sven/exa/adjoint/forward/output/")).glob("pointsource-*.vtk"))
-# fws=os.listdir("/home/sven/exa/adjoint/forward/output/")
-numfiles=89
-#TODO better file reading
-# forward_file="/home/sven/exa/adjoint/forward/output/pointsource-10.vtk"
-# adjoint_file="/home/sven/exa/adjoint/adjoint/outputA/adaptive2a-20.vtk"
-
-if False:
-	for i in range(1,numfiles):
-		forward_file=f"/home/sven/exa/adjoint/forward/output/pointsource-{i}.vtk"
-		adjoint_file=f"/home/sven/exa/adjoint/adjoint/outputA/constsource-{numfiles-i}.vtk"
-		impact, onlypoints=handle_two_files(forward_file, adjoint_file)
-		i_normalized=impact/impact.max()
-		if i==1:
-			refine=np.zeros(impact.size)
-		# refine=np.logical_or(refine, i_normalized>0.9)
-		refine+=(i_normalized>0.9).astype(int)
-		
-		
 def refine_steps(refine:np.ndarray,inorm:np.ndarray):
 	np.maximum(np.floor(inorm*10)/10,refine,refine)
-		
-forward_file=Template("/home/sven/exa/adjoint/forward/output/pointsource-$file.vtk")
-adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/constsource-$file.vtk")
+	
+	
+def three_to_one_balancing(ptsvtk:vtk.vtkPoints,refine:np.ndarray,levels,ref_lvls)->np.ndarray:
+	pts=(3**(levels)-2)*3**(ref_lvls-1)
+	x,y=pts.astype(int)
+	toint=refine*10-10+ref_lvls
+	refineclasses=np.maximum(toint, 0).astype(int)
+	grid=points_to_cartetsian(ptsvtk, refineclasses, x, y)
+	
+	for lvl in range(1,ref_lvls): #inverse level
+		for i in range((3**lvl-1)//2,x,3**lvl):#! fit stride
+			for j in range((3**lvl-1)//2,y,3**lvl):#! fit stride
+				stride=3**(lvl-1)
+				for m in range(max((3**lvl-2)//2,i-2*stride),min(x,i+5*stride),stride):
+					for n in range(max((3**lvl-2)//2,j-2*stride),min(y,j+5*stride),stride):
+						if grid[m,n]>ref_lvls-lvl:
+							grid[i,j]=max(grid[i,j],ref_lvls-lvl)
+	return grid
+	
+	
+	
+	
+	
+if __name__=='__main__':
+	sys.path.append("/home/sven/uni/mt/ExaHyPE-Engine/Toolkit/exahype")
+	# import as module
+	from toolkit import Controller
 
-adjoints=adjoint_over_time(forward_file,adjoint_file,1,90)
-for i in range(1,89):
-	data=readUnstructuredGrid(forward_file.substitute({'file': i}))
-	pointdata: vtk.vtkPointData=data.GetPointData()
-	vtkQ=pointdata.GetArray('Q')
-	fQ=numpy_support.vtk_to_numpy(vtkQ)
-
-	onlypoints: vtk.vtkUnstructuredGrid=vtk.vtkUnstructuredGrid()
-	onlypoints.SetPoints(data.GetPoints())
-	for j in range(89-i):
-		magnitude=np.abs(np.sum(fQ*adjoints[j,:,:], axis=1))  #scalar product for each point)
-		impact=np.log10(magnitude+1e-9)
-		i_normalized=impact/impact.max()
-		if j==0 and i==1:
-			refine=np.zeros(impact.size)
-		# refine+=(i_normalized>0.9).astype(int)
-		# refine=np.logical_or(refine, i_normalized>0.9)
-		refine_steps(refine,i_normalized)
-		aa=1
-onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
-	# write_numpy_array(refine,onlypoints,f"outputE/version2-{i}.vtk")
-plot_numpy_array(refine, onlypoints)
-ref=points_to_cartetsian(data.GetPoints(),refine,25,25)
-np.save("outputE/test4.npy", (ref>0.9).astype(int)) #TODO maybe use smaller int
-a=0
+	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward.exahype'] #! improve
+	config=Controller().spec
+	
+	#TODO handle paths
+	forward_file=Template("/home/sven/exa/adjoint/forward/output/pointsource-$file.vtk")
+	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/constsource-$file.vtk")
+	
+	#TODO get data from the correct file (first run or prod run)
+	end_time=config['computational_domain']['end_time']
+	domain=np.array(config['computational_domain']['width'])
+	output_interval=config['solvers'][0]['plotters'][0]['repeat'] #! read from coarse forward 
+	max_cell_size=config['solvers'][0]['maximum_mesh_size']
+	max_depth=config['solvers'][0]['maximum_mesh_depth']
+	
+	num_files=(end_time+1e-9)//output_interval
+	levels=np.ceil(-np.log(max_cell_size/domain)/np.log(3)) #includes level 0 so maybe np.floor would be better ! <-comment is false
+	
+	
+	adjoints=adjoint_over_time(forward_file,adjoint_file,1,90)
+	for i in range(1,89):
+		data=readUnstructuredGrid(forward_file.substitute({'file': i}))
+		pointdata: vtk.vtkPointData=data.GetPointData()
+		vtkQ=pointdata.GetArray('Q')
+		fQ=numpy_support.vtk_to_numpy(vtkQ)
+	
+		onlypoints: vtk.vtkUnstructuredGrid=vtk.vtkUnstructuredGrid()
+		onlypoints.SetPoints(data.GetPoints())
+		for j in range(89-i):
+			magnitude=np.abs(np.sum(fQ*adjoints[j,:,:], axis=1))  #scalar product for each point)
+			impact=np.log10(magnitude+1e-9)
+			i_normalized=impact/impact.max()
+			if j==0 and i==1:
+				refine=np.zeros(impact.size)
+			# refine+=(i_normalized>0.9).astype(int)
+			# refine=np.logical_or(refine, i_normalized>0.9)
+			refine_steps(refine,i_normalized)
+			aa=1
+	onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
+		# write_numpy_array(refine,onlypoints,f"outputE/version2-{i}.vtk")
+	plot_numpy_array(refine, onlypoints)
+	ref=three_to_one_balancing(data.GetPoints(), refine,levels,max_depth)
+	np.save("outputE/balancing.npy", ref) #TODO maybe use smaller int
+	a=0
 
 	
 	# np.savetxt("test2.txt", ref, '%f', header=str(ref.shape))
