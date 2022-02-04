@@ -180,13 +180,39 @@ def three_to_one_balancing(ptsvtk:vtk.vtkPoints,refine:np.ndarray,levels,ref_lvl
 	grid=points_to_cartetsian(ptsvtk, refineclasses, x, y)
 	
 	for lvl in range(1,ref_lvls): #inverse level
-		for i in range((3**lvl-1)//2,x,3**lvl):#! fit stride
-			for j in range((3**lvl-1)//2,y,3**lvl):#! fit stride
+		for i in range((3**lvl-1)//2,x,3**lvl):
+			for j in range((3**lvl-1)//2,y,3**lvl):
 				stride=3**(lvl-1)
-				for m in range(max((3**lvl-2)//2,i-2*stride),min(x,i+5*stride),stride):
-					for n in range(max((3**lvl-2)//2,j-2*stride),min(y,j+5*stride),stride):
+				for m in range(max((3**lvl-2)//2,i-2*stride),min(x,i+2*stride),stride):
+					for n in range(max((3**lvl-2)//2,j-2*stride),min(y,j+2*stride),stride):
 						if grid[m,n]>ref_lvls-lvl:
 							grid[i,j]=max(grid[i,j],ref_lvls-lvl)
+				m_start=-2
+				m_end=3
+				if i-2*stride<0:
+					m_start=-1
+				if i+2*stride>=x:
+					m_end=2
+				n_start=-2
+				n_end=3
+				if j-2*stride<0:
+					n_start=-1
+				if j+2*stride>=y:
+					n_end=2
+				counter=0
+				for m in range(m_start,m_end):
+					for n in range(n_start,n_end):
+						cell_val=grid[i+m*stride,j+n*stride]
+						if cell_val>ref_lvls-lvl:
+							grid[i,j]=max(grid[i,j],ref_lvls-lvl)
+							break
+						if cell_val==ref_lvls-lvl and -2<m<2 and -2<n<2: #only for values in the same cell
+							counter+=1
+				if counter >=0: # TODO adapt if interpolation does useful stuff
+					grid[i, j]=max(grid[i, j], ref_lvls-lvl)
+							
+						
+						
 	return grid
 	
 	
@@ -239,7 +265,7 @@ if __name__=='__main__':
 		# write_numpy_array(refine,onlypoints,f"outputE/version2-{i}.vtk")
 	plot_numpy_array(refine, onlypoints)
 	ref=three_to_one_balancing(data.GetPoints(), refine,levels,max_depth)
-	np.save("outputE/balancing.npy", ref) #TODO maybe use smaller int
+	np.save("outputE/balancing4.npy", ref) #TODO maybe use smaller int
 	a=0
 
 	
