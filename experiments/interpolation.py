@@ -168,25 +168,63 @@ def points_to_cartetsian(ptsvtk:vtk.vtkPoints, refine:np.ndarray, xsize, ysize) 
 		ret[idx[i,0],idx[i,1]]=np.maximum(ret[idx[i,0],idx[i,1]],refine[i])
 	return  ret
 
+def points_to_cartetsian_int(ptsvtk:vtk.vtkUnstructuredGrid, refine:np.ndarray, xsize, ysize,domain) -> np.ndarray:
+	# sgrid: vtk.vtkStructuredPoints=vtk.vtkStructuredPoints()
+	# sgrid.SetDimensions(xsize, ysize, 1)
+	# sgrid.SetScalarType()
+	
+	sgrid:vtk.vtkStructuredGrid=vtk.vtkStructuredGrid()
+	sgrid.SetDimensions(xsize,ysize,1)
+	pts=vtk.vtkPoints()
+	pts.SetNumberOfPoints(xsize*ysize)
+	xst,yst=domain/[xsize,ysize]
+	for j in range(ysize):
+		for i in range(xsize):
+			pts.SetPoint(j*xsize+i,[i*xst,j*yst,0])
+			
+	sgrid.SetPoints(pts)
+	
+
+	refdata: vtk.vtkArray=numpy_support.numpy_to_vtk(refine)
+	refdata.SetName('ref')
+	ptsvtk.GetPointData().SetActiveScalars('ref')
+	ptsvtk.GetPointData().SetScalars(refdata)
+	
+	voronoi=vtk.vtkVoronoiKernel() #maybe shepar kernel or something else Linear is bad
+
+	interp=vtk.vtkPointInterpolator()
+	interp.SetInputData(sgrid)#TODO change to double/int
+	interp.SetSourceData(ptsvtk)
+	interp.SetKernel(voronoi)
+	interp.Update()
+	res: vtk.vtkStructuredPoints=interp.GetOutput()
+	scalars=res.GetPointData().GetScalars()
+	ret=numpy_support.vtk_to_numpy(scalars)
+	return ret.reshape((xsize,ysize))
+	
+
 def refine_steps(refine:np.ndarray,inorm:np.ndarray):
 	np.maximum(np.floor(inorm*10)/10,refine,refine)
 	
+def refine_steps2(refine:np.ndarray,inorm:np.ndarray):
+	np.maximum(inorm,refine,refine)
 	
-def three_to_one_balancing(ptsvtk:vtk.vtkPoints,refine:np.ndarray,levels,ref_lvls)->np.ndarray:
+	
+def three_to_one_balancing(ptsvtk:vtk.vtkUnstructuredGrid,refine:np.ndarray,levels,ref_lvls,domain)->np.ndarray:
 	pts=(3**(levels)-2)*3**(ref_lvls-1)
 	x,y=pts.astype(int)
-	toint=refine*10-10+ref_lvls
-	refineclasses=np.maximum(toint, 0).astype(int)
-	grid=points_to_cartetsian(ptsvtk, refineclasses, x, y)
+	basic_grid=points_to_cartetsian_int(ptsvtk, refine, x, y,domain)
+	toint=np.floor(basic_grid*10-10+ref_lvls)
+	grid=np.maximum(toint, 0).astype(int)
 	
 	for lvl in range(1,ref_lvls): #inverse level
 		for i in range((3**lvl-1)//2,x,3**lvl):
 			for j in range((3**lvl-1)//2,y,3**lvl):
 				stride=3**(lvl-1)
-				for m in range(max((3**lvl-2)//2,i-2*stride),min(x,i+2*stride),stride):
-					for n in range(max((3**lvl-2)//2,j-2*stride),min(y,j+2*stride),stride):
-						if grid[m,n]>ref_lvls-lvl:
-							grid[i,j]=max(grid[i,j],ref_lvls-lvl)
+				# for m in range(max((3**lvl-2)//2,i-2*stride),min(x,i+2*stride),stride):
+				# 	for n in range(max((3**lvl-2)//2,j-2*stride),min(y,j+2*stride),stride):
+				# 		if grid[m,n]>ref_lvls-lvl:
+				# 			grid[i,j]=max(grid[i,j],ref_lvls-lvl)
 				m_start=-2
 				m_end=3
 				if i-2*stride<0:
@@ -199,17 +237,19 @@ def three_to_one_balancing(ptsvtk:vtk.vtkPoints,refine:np.ndarray,levels,ref_lvl
 					n_start=-1
 				if j+2*stride>=y:
 					n_end=2
-				counter=0
+				counter=np.zeros(ref_lvls-lvl+1)
 				for m in range(m_start,m_end):
 					for n in range(n_start,n_end):
 						cell_val=grid[i+m*stride,j+n*stride]
 						if cell_val>ref_lvls-lvl:
 							grid[i,j]=max(grid[i,j],ref_lvls-lvl)
 							break
-						if cell_val==ref_lvls-lvl and -2<m<2 and -2<n<2: #only for values in the same cell
-							counter+=1
-				if counter >=0: # TODO adapt if interpolation does useful stuff
-					grid[i, j]=max(grid[i, j], ref_lvls-lvl)
+						if -2<m<2 and -2<n<2: #only for values in the same cell
+							counter[cell_val]+=1
+				# TODO adapt if interpolation does useful stuff
+				nzero=np.nonzero(counter)[0]
+				if(nzero.shape[0]>0):
+					grid[i, j]=max(grid[i, j], nzero[-1])# nonzero returns a tuple with an array in it
 							
 						
 						
@@ -259,13 +299,15 @@ if __name__=='__main__':
 				refine=np.zeros(impact.size)
 			# refine+=(i_normalized>0.9).astype(int)
 			# refine=np.logical_or(refine, i_normalized>0.9)
-			refine_steps(refine,i_normalized)
+			refine_steps2(refine,i_normalized)
 			aa=1
 	onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
 		# write_numpy_array(refine,onlypoints,f"outputE/version2-{i}.vtk")
+	print("created refinement grid")
 	plot_numpy_array(refine, onlypoints)
-	ref=three_to_one_balancing(data.GetPoints(), refine,levels,max_depth)
-	np.save("outputE/balancing4.npy", ref) #TODO maybe use smaller int
+	ref=three_to_one_balancing(onlypoints, refine,levels,max_depth,domain)
+	print("finished 3 to 1 balancing")
+	np.save("outputE/balancing4interpol.npy", ref) #TODO maybe use smaller int
 	a=0
 
 	

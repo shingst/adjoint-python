@@ -14,7 +14,7 @@ filename="/home/sven/exa/adjoint/forward/output/pointsource-2.vtk"
 filename2="/home/sven/exa/adjoint/forward/output/pointsource-20.vtk"
 
 data=readUnstructuredGrid(filename)
-data2=readUnstructuredGrid(filename2)
+# data2=readUnstructuredGrid(filename2)
 
 cells=data.GetCells()
 ncells=cells.GetNumberOfCells()
@@ -27,10 +27,10 @@ pts:vtk.vtkPoints=data.GetPoints()
 # pointsset.SetPoints(pts)
 x=np.ones(3)*1.2
 y=np.ones(3)*1.2
-for i in range(data.GetNumberOfPoints()):
-	data.GetPoint(i,x)
-	data2.GetPoint(i,y)
-	assert (x==y).all()
+# for i in range(data.GetNumberOfPoints()):
+# 	data.GetPoint(i,x)
+# 	data2.GetPoint(i,y)
+# 	assert (x==y).all()
 
 # pts:vtk.vtkPoints=data.GetPoints()
 pointdata=data.GetPointData()
@@ -39,6 +39,9 @@ Q=numpy_support.vtk_to_numpy(vtkQ)
 
 impact=np.log10(Q+1e-9)
 i_normalized=impact/impact.max()
+
+
+
 
 def points_to_cartetsian(ptsvtk:vtk.vtkPoints, refine:np.ndarray, xsize, ysize)->np.ndarray:
 	ret=np.zeros((xsize,ysize))
@@ -58,7 +61,25 @@ def points_to_cartetsian(ptsvtk:vtk.vtkPoints, refine:np.ndarray, xsize, ysize)-
 	return ret
 	
 	
-points_to_cartetsian(pts,Q,10,10)
+# points_to_cartetsian(pts,Q,10,10)
+# sgrid:vtk.vtkStructuredPoints=vtk.vtkStructuredPoints()
+# sgrid.SetDimensions(10,10,1)
+# 
+# sgrid.GetPointData()
+# 
+# gaussian_kernel=vtk.vtkGaussianKernel()
+# gaussian_kernel.SetSharpness(4)
+# gaussian_kernel.SetRadius(1)
+# 
+# interp=vtk.vtkPointInterpolator()
+# interp.SetInputData(sgrid)
+# interp.SetSourceData(data)
+# # interp.SetKernel(gaussian_kernel)
+# interp.Update()
+# res:vtk.vtkStructuredPoints= interp.GetOutput() 
+
+pts=vtk.vtkPoints()
+pts.SetNumberOfPoints(5*3)
 
 
 
