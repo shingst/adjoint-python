@@ -77,7 +77,7 @@ def plot_numpy_array(arr, ugrid_to_copy):
 def interpolate(fwdPoints:vtk.vtkUnstructuredGrid,adj:vtk.vtkUnstructuredGrid)-> vtk.vtkUnstructuredGrid:
 	gaussian_kernel=vtk.vtkGaussianKernel()
 	gaussian_kernel.SetSharpness(4)
-	gaussian_kernel.SetRadius(1)
+	gaussian_kernel.SetRadius(0.5)#TODO cell size
 
 	interp=vtk.vtkPointInterpolator()
 	interp.SetInputData(fwdPoints)
@@ -200,7 +200,7 @@ def points_to_cartetsian_int(ptsvtk:vtk.vtkUnstructuredGrid, refine:np.ndarray, 
 	res: vtk.vtkStructuredPoints=interp.GetOutput()
 	scalars=res.GetPointData().GetScalars()
 	ret=numpy_support.vtk_to_numpy(scalars)
-	return ret.reshape((xsize,ysize))
+	return ret.reshape((ysize,xsize)) #TODO
 	
 
 def refine_steps(refine:np.ndarray,inorm:np.ndarray):
@@ -210,12 +210,12 @@ def refine_steps2(refine:np.ndarray,inorm:np.ndarray):
 	np.maximum(inorm,refine,refine)
 	
 	
-def three_to_one_balancing(ptsvtk:vtk.vtkUnstructuredGrid,refine:np.ndarray,levels,ref_lvls,domain)->np.ndarray:
-	pts=(3**(levels)-2)*3**(ref_lvls-1)
-	x,y=pts.astype(int)
+def three_to_one_balancing(ptsvtk:vtk.vtkUnstructuredGrid,refine:np.ndarray,num_pts,ref_lvls,domain)->np.ndarray:
+	# pts=(3**(levels)-2)*3**(ref_lvls-1)
+	x,y=(num_pts*3**(ref_lvls-1)).astype(int)
 	basic_grid=points_to_cartetsian_int(ptsvtk, refine, x, y,domain)
 	toint=np.floor(basic_grid*10-10+ref_lvls)
-	grid=np.maximum(toint, 0).astype(int)
+	grid=np.maximum(toint, 0).astype(int).T #! ????????????
 	
 	for lvl in range(1,ref_lvls): #inverse level
 		for i in range((3**lvl-1)//2,x,3**lvl):
@@ -278,12 +278,17 @@ if __name__=='__main__':
 	max_cell_size=config['solvers'][0]['maximum_mesh_size']
 	max_depth=config['solvers'][0]['maximum_mesh_depth']
 	
-	num_files=(end_time+1e-9)//output_interval
-	levels=np.ceil(-np.log(max_cell_size/domain)/np.log(3)) #includes level 0 so maybe np.floor would be better ! <-comment is false
+	num_files=int((end_time+1e-9)//output_interval) #todo toint 
+	max_level=np.max(np.ceil(-np.log(max_cell_size/domain)/np.log(3)) )#includes level 0 so maybe np.floor would be better ! <-comment is false
+	max_pts=(3**(max_level)-2)
+	cell_size=np.max(domain/max_pts)
 	
+	level_points=np.ceil(domain/cell_size)
+	assert (np.max(level_points)==max_pts)
 	
-	adjoints=adjoint_over_time(forward_file,adjoint_file,1,90)
-	for i in range(1,89):
+	adjoints=adjoint_over_time(forward_file,adjoint_file,1,num_files)#TODO start at 0?
+	print("interpolated all adjoints to the forward grid")
+	for i in range(1,num_files-1):
 		data=readUnstructuredGrid(forward_file.substitute({'file': i}))
 		pointdata: vtk.vtkPointData=data.GetPointData()
 		vtkQ=pointdata.GetArray('Q')
@@ -291,23 +296,23 @@ if __name__=='__main__':
 	
 		onlypoints: vtk.vtkUnstructuredGrid=vtk.vtkUnstructuredGrid()
 		onlypoints.SetPoints(data.GetPoints())
-		for j in range(89-i):
+		for j in range(num_files-1-i):
 			magnitude=np.abs(np.sum(fQ*adjoints[j,:,:], axis=1))  #scalar product for each point)
 			impact=np.log10(magnitude+1e-9)
-			i_normalized=impact/impact.max()
 			if j==0 and i==1:
 				refine=np.zeros(impact.size)
-			# refine+=(i_normalized>0.9).astype(int)
-			# refine=np.logical_or(refine, i_normalized>0.9)
-			refine_steps2(refine,i_normalized)
-			aa=1
+			if impact.max()>0:
+				i_normalized=impact/impact.max()
+				refine_steps2(refine, i_normalized)
+				# refine+=(i_normalized>0.9).astype(int)
+				# refine=np.logical_or(refine, i_normalized>0.9)
 	onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
 		# write_numpy_array(refine,onlypoints,f"outputE/version2-{i}.vtk")
 	print("created refinement grid")
 	plot_numpy_array(refine, onlypoints)
-	ref=three_to_one_balancing(onlypoints, refine,levels,max_depth,domain)
+	ref=three_to_one_balancing(onlypoints, refine,level_points,max_depth,domain)
 	print("finished 3 to 1 balancing")
-	np.save("outputE/balancing4interpol.npy", ref) #TODO maybe use smaller int
+	np.save("outputE/secondwide.npy", ref) #TODO maybe use smaller int
 	a=0
 
 	
