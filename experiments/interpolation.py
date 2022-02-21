@@ -213,9 +213,13 @@ def refine_steps2(refine:np.ndarray,inorm:np.ndarray):
 def three_to_one_balancing(ptsvtk:vtk.vtkUnstructuredGrid,refine:np.ndarray,num_pts,ref_lvls,domain)->np.ndarray:
 	# pts=(3**(levels)-2)*3**(ref_lvls-1)
 	x,y=(num_pts*3**(ref_lvls-1)).astype(int)
-	basic_grid=points_to_cartetsian_int(ptsvtk, refine, x, y,domain)
-	toint=np.floor(basic_grid*10-10+ref_lvls)
-	grid=np.maximum(toint, 0).astype(int).T #! ????????????
+	basic_grid=(points_to_cartetsian_int(ptsvtk, refine, x, y,domain)).T #transposed due to numpy assuming a matrix instead of coordinates
+	# np.save("second-interpolated.npy",basic_grid)
+	# toint=np.floor(basic_grid*10-10+ref_lvls)
+	# grid=np.maximum(toint, 0).astype(int).T 
+	grid=(basic_grid>np.quantile(basic_grid, 2/3))*1
+	for i in range(2, ref_lvls+1):
+		grid+=(basic_grid>np.quantile(basic_grid,1- 1/(3**i)))*1
 	
 	for lvl in range(1,ref_lvls): #inverse level
 		for i in range((3**lvl-1)//2,x,3**lvl):
