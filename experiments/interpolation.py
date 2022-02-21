@@ -71,7 +71,7 @@ def plot_numpy_array(arr, ugrid_to_copy):
 	renderer.SetBackground(0.1, 0.1, 0.4)
 
 	window.Render()
-	# interactor.Start()
+	interactor.Start()
 
 
 def interpolate(fwdPoints:vtk.vtkUnstructuredGrid,adj:vtk.vtkUnstructuredGrid)-> vtk.vtkUnstructuredGrid:
@@ -125,7 +125,7 @@ def adjoint_over_time(forward_template:Template,adjoint_template:Template,start,
 	"""
 	data=readUnstructuredGrid(forward_template.substitute({'file':'1'}))
 	pts: vtk.vtkPoints=data.GetPoints()
-
+	# ptsforward=numpy_support.vtk_to_numpy(pts.GetData())
 	onlypoints: vtk.vtkUnstructuredGrid=vtk.vtkUnstructuredGrid()
 	onlypoints.SetPoints(pts)
 	num_pts=pts.GetNumberOfPoints()
@@ -133,7 +133,12 @@ def adjoint_over_time(forward_template:Template,adjoint_template:Template,start,
 	adjoints=np.zeros((finish-start,num_pts,5))
 	for i in range(finish-start):
 		adj:vtk.vtkUnstructuredGrid=readUnstructuredGrid(adjoint_template.substitute({'file': i+start}))
-		adj_interpolated: vtk.vtkUnstructuredGrid=interpolate(onlypoints, adj)  #TODO use pipelines
+		# ptsadjoint=numpy_support.vtk_to_numpy(adj.GetPoints().GetData())
+		# if (ptsforward==ptsadjoint).all():
+		# 	print("adjoint points and forward points are equal")
+		# 	adj_interpolated=adj
+		# else:
+		# 	adj_interpolated: vtk.vtkUnstructuredGrid=interpolate(onlypoints, adj)  #TODO use pipelines
 		pointdata: vtk.vtkPointData=adj_interpolated.GetPointData()
 		vtkQ=pointdata.GetArray('Q')
 		aQ=numpy_support.vtk_to_numpy(vtkQ)
@@ -267,20 +272,28 @@ if __name__=='__main__':
 	sys.path.append("/home/sven/uni/mt/ExaHyPE-Engine/Toolkit/exahype")
 	# import as module
 	from toolkit import Controller
+	from tools import tools
 
 	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward.exahype'] #! improve
-	config=Controller().spec
+	configfw=Controller().spec
+	tools.tools=[] # needed or if will be filled twice and the parser crashes
+	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/fwrefined.exahype']  #! improve
+	configref=Controller().spec
 	
 	#TODO handle paths
-	forward_file=Template("/home/sven/exa/adjoint/forward/output/pointsource-$file.vtk")
-	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/constsource-$file.vtk")
 	
-	#TODO get data from the correct file (first run or prod run)
-	end_time=config['computational_domain']['end_time']
-	domain=np.array(config['computational_domain']['width'])
-	output_interval=config['solvers'][0]['plotters'][0]['repeat'] #! read from coarse forward 
-	max_cell_size=config['solvers'][0]['maximum_mesh_size']
-	max_depth=config['solvers'][0]['maximum_mesh_depth']
+	# forward_file=Template("/home/sven/exa/adjoint/forward/output/pointsource-$file.vtk")
+	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/constsource-$file.vtk")
+	forward_file=Template("/home/sven/exa/adjoint/forward/output/secondwide-$file.vtk")
+	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/secondwide-$file.vtk")
+	
+	end_time=configfw['computational_domain']['end_time']
+	domain=np.array(configref['computational_domain']['width'])
+	assert np.allclose(domain,np.array(configfw['computational_domain']['width']))#domain between refined and coarse grid should be the same
+	output_interval=configfw['solvers'][0]['plotters'][0]['repeat'] 
+	max_cell_size=configref['solvers'][0]['maximum_mesh_size']
+	max_depth=configref['solvers'][0]['maximum_mesh_depth']
+	output_file=configref['solvers'][0]['adg']
 	
 	num_files=int((end_time+1e-9)//output_interval) #todo toint 
 	max_level=np.max(np.ceil(-np.log(max_cell_size/domain)/np.log(3)) )#includes level 0 so maybe np.floor would be better ! <-comment is false
@@ -313,10 +326,10 @@ if __name__=='__main__':
 	onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
 		# write_numpy_array(refine,onlypoints,f"outputE/version2-{i}.vtk")
 	print("created refinement grid")
-	plot_numpy_array(refine, onlypoints)
+	# plot_numpy_array(refine, onlypoints)
 	ref=three_to_one_balancing(onlypoints, refine,level_points,max_depth,domain)
 	print("finished 3 to 1 balancing")
-	np.save("outputE/secondwide.npy", ref) #TODO maybe use smaller int
+	np.save(output_file, ref) #TODO maybe use smaller int
 	a=0
 
 	
