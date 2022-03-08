@@ -138,7 +138,7 @@ def adjoint_over_time(forward_template:Template,adjoint_template:Template,start,
 		# 	print("adjoint points and forward points are equal")
 		# 	adj_interpolated=adj
 		# else:
-		# 	adj_interpolated: vtk.vtkUnstructuredGrid=interpolate(onlypoints, adj)  #TODO use pipelines
+		adj_interpolated: vtk.vtkUnstructuredGrid=interpolate(onlypoints, adj)  #TODO use pipelines
 		pointdata: vtk.vtkPointData=adj_interpolated.GetPointData()
 		vtkQ=pointdata.GetArray('Q')
 		aQ=numpy_support.vtk_to_numpy(vtkQ)
@@ -285,7 +285,9 @@ if __name__=='__main__':
 	# forward_file=Template("/home/sven/exa/adjoint/forward/output/pointsource-$file.vtk")
 	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/constsource-$file.vtk")
 	forward_file=Template("/home/sven/exa/adjoint/forward/output/secondwide-$file.vtk")
-	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/secondwide-$file.vtk")
+	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/secondvelo-$file.vtk")
+	# forward_file=Template("/home/sven/exa/adjoint/forward/output/helsinkimo-$file.vtk")
+	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/helsinkimo-$file.vtk")
 	
 	end_time=configfw['computational_domain']['end_time']
 	domain=np.array(configref['computational_domain']['width'])
@@ -319,14 +321,16 @@ if __name__=='__main__':
 			if j==0 and i==1:
 				refine=np.zeros(impact.size)
 			if impact.max()>0:
-				i_normalized=impact/impact.max()
-				refine_steps2(refine, i_normalized)
-				# refine+=(i_normalized>0.9).astype(int)
-				# refine=np.logical_or(refine, i_normalized>0.9)
+			# 	i_normalized=impact/impact.max()
+			# 	refine_steps2(refine, i_normalized)
+				refine_steps2(refine,impact)
+			# refine_steps2(refine,magnitude)
+
+
 	onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
 		# write_numpy_array(refine,onlypoints,f"outputE/version2-{i}.vtk")
 	print("created refinement grid")
-	# plot_numpy_array(refine, onlypoints)
+	plot_numpy_array(refine, onlypoints)
 	ref=three_to_one_balancing(onlypoints, refine,level_points,max_depth,domain)
 	print("finished 3 to 1 balancing")
 	np.save(output_file, ref) #TODO maybe use smaller int
