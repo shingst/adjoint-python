@@ -302,7 +302,7 @@ if __name__=='__main__':
 	max_pts=(3**(max_level)-2)
 	cell_size=np.max(domain/max_pts)
 	
-	level_points=np.ceil(domain/cell_size)
+	level_points=np.ceil(np.round(domain/cell_size,7))
 	assert (np.max(level_points)==max_pts)
 	
 	adjoints=adjoint_over_time(forward_file,adjoint_file,1,num_files)#TODO start at 0?
