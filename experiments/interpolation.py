@@ -131,6 +131,7 @@ def adjoint_over_time(forward_template:Template,adjoint_template:Template,start,
 	num_pts=pts.GetNumberOfPoints()
 	
 	adjoints=np.zeros((finish-start,num_pts,5))
+	percentcounter=0.1
 	for i in range(finish-start):
 		adj:vtk.vtkUnstructuredGrid=readUnstructuredGrid(adjoint_template.substitute({'file': i+start}))
 		# ptsadjoint=numpy_support.vtk_to_numpy(adj.GetPoints().GetData())
@@ -143,6 +144,9 @@ def adjoint_over_time(forward_template:Template,adjoint_template:Template,start,
 		vtkQ=pointdata.GetArray('Q')
 		aQ=numpy_support.vtk_to_numpy(vtkQ)
 		adjoints[i,:,:]=aQ
+		if i/(finish-start)>percentcounter:
+			print(f"interpolation to forward grid  {100*percentcounter}% finished")
+			percentcounter+=0.1
 	return adjoints
 
 
@@ -307,6 +311,7 @@ if __name__=='__main__':
 	
 	adjoints=adjoint_over_time(forward_file,adjoint_file,1,num_files)#TODO start at 0?
 	print("interpolated all adjoints to the forward grid")
+	percentcounter=0.0
 	for i in range(1,num_files-1):
 		data=readUnstructuredGrid(forward_file.substitute({'file': i}))
 		pointdata: vtk.vtkPointData=data.GetPointData()
@@ -325,6 +330,9 @@ if __name__=='__main__':
 			# 	refine_steps2(refine, i_normalized)
 				refine_steps2(refine,impact)
 			# refine_steps2(refine,magnitude)
+		if (i+1)/(num_files-2)>percentcounter:
+			print(f"scalar product of {100*percentcounter}% forward grids finished")
+			percentcounter+=0.1
 
 
 	onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
