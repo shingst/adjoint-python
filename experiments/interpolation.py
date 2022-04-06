@@ -177,7 +177,7 @@ def points_to_cartetsian(ptsvtk:vtk.vtkPoints, refine:np.ndarray, xsize, ysize) 
 		ret[idx[i,0],idx[i,1]]=np.maximum(ret[idx[i,0],idx[i,1]],refine[i])
 	return  ret
 
-def points_to_cartetsian_int(ptsvtk:vtk.vtkUnstructuredGrid, refine:np.ndarray, xsize, ysize,domain) -> np.ndarray:
+def points_to_cartetsian_int(ptsvtk:vtk.vtkUnstructuredGrid, refine:np.ndarray, xsize, ysize,domain,offset) -> np.ndarray:
 	# sgrid: vtk.vtkStructuredPoints=vtk.vtkStructuredPoints()
 	# sgrid.SetDimensions(xsize, ysize, 1)
 	# sgrid.SetScalarType()
@@ -189,7 +189,7 @@ def points_to_cartetsian_int(ptsvtk:vtk.vtkUnstructuredGrid, refine:np.ndarray, 
 	xst,yst=domain/[xsize,ysize]
 	for j in range(ysize):
 		for i in range(xsize):
-			pts.SetPoint(j*xsize+i,[i*xst,j*yst,0])
+			pts.SetPoint(j*xsize+i,[i*xst+offset[0],j*yst+offset[1],0])
 			
 	sgrid.SetPoints(pts)
 	
@@ -219,16 +219,16 @@ def refine_steps2(refine:np.ndarray,inorm:np.ndarray):
 	np.maximum(inorm,refine,refine)
 	
 	
-def three_to_one_balancing(ptsvtk:vtk.vtkUnstructuredGrid,refine:np.ndarray,num_pts,ref_lvls,domain)->np.ndarray:
+def three_to_one_balancing(ptsvtk:vtk.vtkUnstructuredGrid,refine:np.ndarray,num_pts,ref_lvls,domain,offset,quantiles)->np.ndarray:
 	# pts=(3**(levels)-2)*3**(ref_lvls-1)
 	x,y=(num_pts*3**(ref_lvls-1)).astype(int)
-	basic_grid=(points_to_cartetsian_int(ptsvtk, refine, x, y,domain)).T #transposed due to numpy assuming a matrix instead of coordinates
+	basic_grid=(points_to_cartetsian_int(ptsvtk, refine, x, y,domain,offset)).T #transposed due to numpy assuming a matrix instead of coordinates
 	# np.save("second-interpolated.npy",basic_grid)
 	# toint=np.floor(basic_grid*10-10+ref_lvls)
 	# grid=np.maximum(toint, 0).astype(int).T 
-	grid=(basic_grid>np.quantile(basic_grid, 2/3))*1
-	for i in range(2, ref_lvls+1):
-		grid+=(basic_grid>np.quantile(basic_grid,1- 1/(3**i)))*1
+	grid=(basic_grid>np.quantile(basic_grid, 1-quantiles[0]))*1
+	for i in range(1, ref_lvls):
+		grid+=(basic_grid>np.quantile(basic_grid,1- quantiles[i]))*1
 	
 	for lvl in range(1,ref_lvls): #inverse level
 		for i in range((3**lvl-1)//2,x,3**lvl):
@@ -288,13 +288,18 @@ if __name__=='__main__':
 	
 	# forward_file=Template("/home/sven/exa/adjoint/forward/output/pointsource-$file.vtk")
 	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/constsource-$file.vtk")
-	forward_file=Template("/home/sven/exa/adjoint/forward/output/secondwide-$file.vtk")
-	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/secondvelo-$file.vtk")
+	# forward_file=Template("/home/sven/exa/adjoint/forward/output/secondwide-$file.vtk")
+	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/secondvelo-$file.vtk")
+	# forward_file=Template("/home/sven/exa/adjoint/forward/sismo/wp1c-$file.vtk")
+	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/sismoWP1-$file.vtk")
 	# forward_file=Template("/home/sven/exa/adjoint/forward/output/helsinkimo-$file.vtk")
 	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/helsinkimo-$file.vtk")
+	forward_file=Template("/home/sven/exa/adjoint/forward/output/hel/coarse-$file.vtk")
+	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/hel10f-$file.vtk")
 	
 	end_time=configfw['computational_domain']['end_time']
 	domain=np.array(configref['computational_domain']['width'])
+	offset=np.array(configref['computational_domain']['offset'])
 	assert np.allclose(domain,np.array(configfw['computational_domain']['width']))#domain between refined and coarse grid should be the same
 	output_interval=configfw['solvers'][0]['plotters'][0]['repeat'] 
 	max_cell_size=configref['solvers'][0]['maximum_mesh_size']
@@ -322,7 +327,7 @@ if __name__=='__main__':
 		onlypoints.SetPoints(data.GetPoints())
 		for j in range(num_files-1-i):
 			magnitude=np.abs(np.sum(fQ*adjoints[j,:,:], axis=1))  #scalar product for each point)
-			impact=np.log10(magnitude+1e-9)
+			impact=np.log10(magnitude+1e-9)+3#rescales the offset
 			if j==0 and i==1:
 				refine=np.zeros(impact.size)
 			if impact.max()>0:
@@ -339,7 +344,8 @@ if __name__=='__main__':
 		# write_numpy_array(refine,onlypoints,f"outputE/version2-{i}.vtk")
 	print("created refinement grid")
 	plot_numpy_array(refine, onlypoints)
-	ref=three_to_one_balancing(onlypoints, refine,level_points,max_depth,domain)
+	quantiles=[1/3,1/9,1/27,1/81,1/243,1/729,1/2187]
+	ref=three_to_one_balancing(onlypoints, refine,level_points,max_depth,domain,offset,quantiles)
 	print("finished 3 to 1 balancing")
 	np.save(output_file, ref) #TODO maybe use smaller int
 	a=0
