@@ -284,7 +284,11 @@ def three_to_one_balancing(ptsvtk:vtk.vtkUnstructuredGrid,refine:np.ndarray,num_
 						
 	return grid
 	
-	
+def countrefs(ref:np.ndarray):
+	xx,yy=ref.shape	
+	l1=np.count_nonzero(ref[1::3, 1::3])
+	l2=np.count_nonzero(ref>=2)
+	print(f"{100*l1/((xx-1)//3*(yy-1)//3):.1f}% refined once {100*l2/(xx*yy):.1f}% refined twice")
 	
 	
 	
@@ -363,6 +367,7 @@ if __name__=='__main__':
 	quantiles=[1/3,1/9,1/27,1/81,1/243,1/729,1/2187]
 	ref=three_to_one_balancing(onlypoints, refine,level_points,max_depth,domain,offset,quantiles)
 	print("finished 3 to 1 balancing")
+	countrefs(ref)
 	np.save(output_file, ref) #TODO maybe use smaller int
 	a=0
 
