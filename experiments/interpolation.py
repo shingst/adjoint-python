@@ -276,9 +276,9 @@ def three_to_one_balancing(ptsvtk:vtk.vtkUnstructuredGrid,refine:np.ndarray,num_
 						if -2<m<2 and -2<n<2: #only for values in the same cell
 							counter[cell_val]+=1
 				# TODO adapt if interpolation does useful stuff
-				nzero=np.nonzero(counter)[0]
-				if(nzero.shape[0]>0):
-					grid[i, j]=max(grid[i, j], nzero[-1])# nonzero returns a tuple with an array in it
+				# nzero=np.nonzero(counter)[0]
+				# if(nzero.shape[0]>0):
+				# 	grid[i, j]=max(grid[i, j], nzero[-1])# nonzero returns a tuple with an array in it
 							
 						
 						
@@ -314,8 +314,8 @@ if __name__=='__main__':
 	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/sismoWP1-$file.vtk")
 	# forward_file=Template("/home/sven/exa/adjoint/forward/output/helsinkimo-$file.vtk")
 	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/helsinkimo-$file.vtk")
-	forward_file=Template("/home/sven/exa/adjoint/forward/output/hel/coarse-$file.vtk")
-	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/hel10f-$file.vtk")
+	forward_file=Template("/home/sven/exa/adjoint/forward/output/bel/coarse-$file.vtk")
+	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/bel10vel-$file.vtk")
 	
 	end_time=configfw['computational_domain']['end_time']
 	domain=np.array(configref['computational_domain']['width'])
@@ -346,19 +346,28 @@ if __name__=='__main__':
 		onlypoints: vtk.vtkUnstructuredGrid=vtk.vtkUnstructuredGrid()
 		onlypoints.SetPoints(data.GetPoints())
 		for j in range(num_files-1-i):
-			magnitude=np.abs(np.sum(fQ*adjoints[j,:,:], axis=1))  #scalar product for each point)
-			impact=np.log10(magnitude+1e-9)+3#rescales the offset
+			magnitude=np.abs(np.sum(fQ[:,3:]*adjoints[j,:,3:], axis=1))  #scalar product for each point)
+			# magnitude=np.abs(np.sum(fQ*adjoints[j, :, :], axis=1))
+			if magnitude.max()>0:
+				impact=magnitude/magnitude.max()
+			# impact=np.log10(magnitude+1e-9)+1.5#rescales the offset
+			# impact=magnitude
+			if j==0:
+				dbgtmp=np.zeros(impact.size)
 			if j==0 and i==1:
 				refine=np.zeros(impact.size)
-			if impact.max()>0:
+			# if impact.max()>0:
 			# 	i_normalized=impact/impact.max()
 			# 	refine_steps2(refine, i_normalized)
-				refine_steps2(refine,impact)
+			
+			refine_steps2(refine,impact)
+			refine_steps2(dbgtmp,impact)
 			# refine_steps2(refine,magnitude)
 		if (i+1)/(num_files-2)>percentcounter:
 			print(f"scalar product of {100*percentcounter}% forward grids finished")
 			percentcounter+=0.1
-
+		onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
+		plot_numpy_array(dbgtmp, onlypoints)
 
 	onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
 		# write_numpy_array(refine,onlypoints,f"outputE/version2-{i}.vtk")
