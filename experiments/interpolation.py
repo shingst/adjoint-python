@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from string import Template
 import sys
+import hashlib
 
 def readUnstructuredGrid(filename) -> vtk.vtkUnstructuredGrid:
 	reader=vtk.vtkUnstructuredGridReader()
@@ -123,6 +124,17 @@ def adjoint_over_time(forward_template:Template,adjoint_template:Template,start,
 	:param finish: larger than the last index
 	:return: 
 	"""
+	fwhash = hashlib.md5(Path(forward_template.substitute({'file':'1'})).read_bytes()).hexdigest()
+	adjhash = hashlib.md5(Path(adjoint_template.substitute({'file':'1'})).read_bytes()).hexdigest()
+	cachfolder=os.path.expanduser('~/.cache/earthadj/')
+	
+	try:
+		ret=np.load(cachfolder+fwhash+adjhash+".npy")
+		print("loaded interpolation to forward grid from cache")
+		return ret
+	except OSError :
+		print("could not load cached interpolation to forward grid")
+	
 	data=readUnstructuredGrid(forward_template.substitute({'file':'1'}))
 	pts: vtk.vtkPoints=data.GetPoints()
 	# ptsforward=numpy_support.vtk_to_numpy(pts.GetData())
@@ -147,6 +159,10 @@ def adjoint_over_time(forward_template:Template,adjoint_template:Template,start,
 		if i/(finish-start)>percentcounter:
 			print(f"interpolation to forward grid  {100*percentcounter}% finished")
 			percentcounter+=0.1
+
+	if not os.path.exists(cachfolder):
+		os.makedirs(cachfolder)
+	ret=np.save(cachfolder+fwhash+adjhash+".npy",adjoints)
 	return adjoints
 
 
