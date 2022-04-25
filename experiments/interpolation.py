@@ -130,10 +130,10 @@ def adjoint_over_time(forward_template:Template,adjoint_template:Template,start,
 	
 	try:
 		ret=np.load(cachfolder+fwhash+adjhash+".npy")
-		print("loaded interpolation to forward grid from cache")
+		print("loaded interpolation of the adjoint to the forward grid from cache")
 		return ret
 	except OSError :
-		print("could not load cached interpolation to forward grid")
+		print("no cached interpolation found")
 	
 	data=readUnstructuredGrid(forward_template.substitute({'file':'1'}))
 	pts: vtk.vtkPoints=data.GetPoints()
@@ -315,7 +315,9 @@ if __name__=='__main__':
 	# forward_file=Template("/home/sven/exa/adjoint/forward/output/helsinkimo-$file.vtk")
 	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/helsinkimo-$file.vtk")
 	forward_file=Template("/home/sven/exa/adjoint/forward/output/bel/coarse-$file.vtk")
-	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/bel10vel-$file.vtk")
+	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/bel8f-$file.vtk")
+	
+	use_amr=True
 	
 	end_time=configfw['computational_domain']['end_time']
 	domain=np.array(configref['computational_domain']['width'])
@@ -348,35 +350,59 @@ if __name__=='__main__':
 		for j in range(num_files-1-i):
 			magnitude=np.abs(np.sum(fQ[:,3:]*adjoints[j,:,3:], axis=1))  #scalar product for each point)
 			# magnitude=np.abs(np.sum(fQ*adjoints[j, :, :], axis=1))
-			if magnitude.max()>0:
-				impact=magnitude/magnitude.max()
+			# if magnitude.max()>0:
+			# 	impact=magnitude/magnitude.max()
 			# impact=np.log10(magnitude+1e-9)+1.5#rescales the offset
-			# impact=magnitude
-			if j==0:
-				dbgtmp=np.zeros(impact.size)
+			impact=magnitude
+			# if j==0:
+			# 	dbgtmp=np.zeros(impact.size)
 			if j==0 and i==1:
-				refine=np.zeros(impact.size)
+				if use_amr:
+					amr=np.zeros((20, *impact.shape))
+				else:
+					refine=np.zeros_like(impact)			
 			# if impact.max()>0:
 			# 	i_normalized=impact/impact.max()
 			# 	refine_steps2(refine, i_normalized)
-			
-			refine_steps2(refine,impact)
-			refine_steps2(dbgtmp,impact)
+				
+			if use_amr:
+				pc=((i-1)*10)//(num_files-2)
+				pc2=int((((i-1)/(num_files-2))+0.05)//0.1)
+	
+				refine_steps2(amr[2*pc,:], impact)
+				if(pc2>0):
+					refine_steps2(amr[(2*pc2-1),:],impact)
+			else:
+				refine_steps2(refine, impact)
+
+		# refine_steps2(dbgtmp,impact)
 			# refine_steps2(refine,magnitude)
-		if (i+1)/(num_files-2)>percentcounter:
+		if (i-1)/(num_files-2)>percentcounter:
 			print(f"scalar product of {100*percentcounter}% forward grids finished")
 			percentcounter+=0.1
-		onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
-		plot_numpy_array(dbgtmp, onlypoints)
+		# onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
+		# plot_numpy_array(dbgtmp, onlypoints)
 
 	onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
 		# write_numpy_array(refine,onlypoints,f"outputE/version2-{i}.vtk")
 	print("created refinement grid")
-	plot_numpy_array(refine, onlypoints)
-	quantiles=[1/3,1/9,1/27,1/81,1/243,1/729,1/2187]
-	ref=three_to_one_balancing(onlypoints, refine,level_points,max_depth,domain,offset,quantiles)
+	# plot_numpy_array(refine, onlypoints)
+	for i in range(20):
+		plot_numpy_array(amr[i,:],onlypoints)
+	if use_amr:
+		refs=[]
+		quantiles=[1/8,1/16,1/20]
+		for i in range(20):
+			a=three_to_one_balancing(onlypoints, amr[i,:],level_points,max_depth,domain,offset,quantiles)
+			countrefs(a)
+			refs.append(a)
+		ref=np.stack(refs,axis=0)
+	else:
+		quantiles=[1/3,1/9,1/27,1/81,1/243,1/729,1/2187]
+		ref=three_to_one_balancing(onlypoints, refine,level_points,max_depth,domain,offset,quantiles)
+		countrefs(ref)
+		
 	print("finished 3 to 1 balancing")
-	countrefs(ref)
 	np.save(output_file, ref) #TODO maybe use smaller int
 	a=0
 
