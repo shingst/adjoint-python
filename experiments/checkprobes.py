@@ -13,8 +13,9 @@ import scipy.interpolate as sci
 # file2adj=''
 
 # file1cs="/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward/output/bel/manual10thirds10.probe"
-file1cs="/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward/output/bel/stress10f10.probe"
-file2adj="/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward/output/bel/f10thirds10.probe"
+file1cs="/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward/output/bel/amr8t8.probe"
+# file2adj="/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward/output/bel/manual10thirds10.probe"
+file2adj="/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward/output/bel/f8thirds8.probe"
 # file1cs="/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward/output/tune10f10.probe"
 # file2adj="/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward/output/tune10e10.probe"
 
@@ -28,7 +29,7 @@ if coarse.shape[0]==151:
 pr=pd.read_csv(file2adj)
 staticadj=pr.values
 # staticadj=np.delete(staticadj,100,0)#is plotted twice
-pr=pd.read_csv("/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward/output/bel/full10.probe")
+pr=pd.read_csv("/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward/output/bel/full8.probe")
 fine=pr.values
 
 def RMS(approx,fgrid,col):
@@ -43,7 +44,7 @@ def timeerror(probe):
 	avg=np.average(np.abs(terr))
 
 def resampleprobe(probe,interval=0.02,start=0.0,end=3.0):
-	time_points=np.arange(0, 3, 0.02)
+	time_points=np.arange(start, end+interval, interval)
 	ret=np.zeros_like(probe)
 	ret[:,0]=time_points
 	ret[:,1]=time_points
@@ -52,9 +53,9 @@ def resampleprobe(probe,interval=0.02,start=0.0,end=3.0):
 		ret[:,i+2]=int1(time_points)
 	return ret
 
-coarse=resampleprobe(coarse)
-fine=resampleprobe(fine)
-staticadj=resampleprobe(staticadj)
+coarse=resampleprobe(coarse[:128,:],end=2.54)
+fine=resampleprobe(fine[:128,:],end=2.54)
+staticadj=resampleprobe(staticadj[:128,:],end=2.54)
 
 
 

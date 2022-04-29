@@ -301,23 +301,24 @@ if __name__=='__main__':
 	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward.exahype'] #! improve
 	configfw=Controller().spec
 	tools.tools=[] # needed or if will be filled twice and the parser crashes
-	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/fwrefined.exahype']  #! improve
+	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/xrefined.exahype']  #! improve
 	configref=Controller().spec
 	
 	#TODO handle paths
 	
-	# forward_file=Template("/home/sven/exa/adjoint/forward/output/pointsource-$file.vtk")
-	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/constsource-$file.vtk")
+	forward_file=Template("/home/sven/exa/adjoint/forward/output/tune-$file.vtk")
+	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/tune10v-$file.vtk")
 	# forward_file=Template("/home/sven/exa/adjoint/forward/output/secondwide-$file.vtk")
 	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/secondvelo-$file.vtk")
 	# forward_file=Template("/home/sven/exa/adjoint/forward/sismo/wp1c-$file.vtk")
 	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/sismoWP1-$file.vtk")
 	# forward_file=Template("/home/sven/exa/adjoint/forward/output/helsinkimo-$file.vtk")
 	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/helsinkimo-$file.vtk")
-	forward_file=Template("/home/sven/exa/adjoint/forward/output/bel/coarse-$file.vtk")
-	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/bel8f-$file.vtk")
+	# forward_file=Template("/home/sven/exa/adjoint/forward/output/bel/coarse-$file.vtk")
+	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/bel8f-$file.vtk")
 	
-	use_amr=True
+	# use_amr=True
+	use_amr=False
 	
 	end_time=configfw['computational_domain']['end_time']
 	domain=np.array(configref['computational_domain']['width'])
@@ -386,10 +387,10 @@ if __name__=='__main__':
 	onlypoints.SetCells(data.GetCellTypesArray(), data.GetCells())
 		# write_numpy_array(refine,onlypoints,f"outputE/version2-{i}.vtk")
 	print("created refinement grid")
-	# plot_numpy_array(refine, onlypoints)
-	for i in range(20):
-		plot_numpy_array(amr[i,:],onlypoints)
+	
 	if use_amr:
+		for i in range(20):
+			plot_numpy_array(amr[i, :], onlypoints)
 		refs=[]
 		quantiles=[1/8,1/16,1/20]
 		for i in range(20):
@@ -398,6 +399,7 @@ if __name__=='__main__':
 			refs.append(a)
 		ref=np.stack(refs,axis=0)
 	else:
+		plot_numpy_array(refine, onlypoints)
 		quantiles=[1/3,1/9,1/27,1/81,1/243,1/729,1/2187]
 		ref=three_to_one_balancing(onlypoints, refine,level_points,max_depth,domain,offset,quantiles)
 		countrefs(ref)
