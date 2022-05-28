@@ -6,6 +6,7 @@ from pathlib import Path
 from string import Template
 import sys
 import hashlib
+import matplotlib.pyplot as plt
 
 def readUnstructuredGrid(filename) -> vtk.vtkUnstructuredGrid:
 	reader=vtk.vtkUnstructuredGridReader()
@@ -242,9 +243,14 @@ def three_to_one_balancing(ptsvtk:vtk.vtkUnstructuredGrid,refine:np.ndarray,num_
 	# np.save("second-interpolated.npy",basic_grid)
 	# toint=np.floor(basic_grid*10-10+ref_lvls)
 	# grid=np.maximum(toint, 0).astype(int).T 
-	grid=(basic_grid>np.quantile(basic_grid, 1-quantiles[0]))*1
+	q0=np.quantile(basic_grid, 1-quantiles[0])
+	np.save("outputE/inner13a.npy",basic_grid)
+	print(f"q0={q0}")
+	grid=(basic_grid>q0)*1
 	for i in range(1, ref_lvls):
-		grid+=(basic_grid>np.quantile(basic_grid,1- quantiles[i]))*1
+		q0=np.quantile(basic_grid, 1-quantiles[i])
+		print(f"q{i}={q0}")
+		grid+=(basic_grid>q0)*1
 	
 	for lvl in range(1,ref_lvls): #inverse level
 		for i in range((3**lvl-1)//2,x,3**lvl):
@@ -290,6 +296,11 @@ def countrefs(ref:np.ndarray):
 	l2=np.count_nonzero(ref>=2)
 	print(f"{100*l1/((xx-1)//3*(yy-1)//3):.1f}% refined once {100*l2/(xx*yy):.1f}% refined twice")
 	
+def plotref(ref:np.ndarray,domain:np.ndarray,offset:np.ndarray):
+	xx=np.linspace(offset[0],domain[0]+offset[0],ref.shape[0])
+	yy=np.linspace(offset[1],domain[1]+offset[1],ref.shape[1])
+	plt.pcolor(xx,yy,ref.T,shading='auto')
+	plt.show()
 	
 	
 if __name__=='__main__':
@@ -300,34 +311,37 @@ if __name__=='__main__':
 
 	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward.exahype'] #! improve
 	configfw=Controller().spec
-	tools.tools=[] # needed or if will be filled twice and the parser crashes
-	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/xrefined.exahype']  #! improve
+	tools.tools=[] # needed or it will be filled twice and the parser crashes
+	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/fwrefined.exahype']  #! improve
 	configref=Controller().spec
 	
 	#TODO handle paths
 	
-	forward_file=Template("/home/sven/exa/adjoint/forward/output/tune-$file.vtk")
-	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/tune10v-$file.vtk")
-	# forward_file=Template("/home/sven/exa/adjoint/forward/output/secondwide-$file.vtk")
-	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/secondvelo-$file.vtk")
+	# forward_file=Template("/home/sven/exa/adjoint/forward/output/simple/coarse-$file.vtk")
+	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/simple13sigma-$file.vtk")
+	# forward_file=Template("/home/sven/exa/adjoint/forward/output/pwavescoarse-$file.vtk")
+	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/pwave12sigma-$file.vtk")
 	# forward_file=Template("/home/sven/exa/adjoint/forward/sismo/wp1c-$file.vtk")
 	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/sismoWP1-$file.vtk")
-	# forward_file=Template("/home/sven/exa/adjoint/forward/output/helsinkimo-$file.vtk")
-	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/helsinkimo-$file.vtk")
-	# forward_file=Template("/home/sven/exa/adjoint/forward/output/bel/coarse-$file.vtk")
-	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/bel8f-$file.vtk")
+	# forward_file=Template("/home/sven/exa/adjoint/forward/output/wel/wcoarse-$file.vtk")
+	# adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/wel11-$file.vtk")
+	forward_file=Template("/home/sven/exa/adjoint/forward/output/wel/wcoarse-$file.vtk")
+	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/wel11sigma-$file.vtk")
 	
+	print(forward_file.template,adjoint_file.template)
+
 	# use_amr=True
 	use_amr=False
 	
 	end_time=configfw['computational_domain']['end_time']
 	domain=np.array(configref['computational_domain']['width'])
 	offset=np.array(configref['computational_domain']['offset'])
-	assert np.allclose(domain,np.array(configfw['computational_domain']['width']))#domain between refined and coarse grid should be the same
+	# assert np.allclose(domain,np.array(configfw['computational_domain']['width']))#domain between refined and coarse grid should be the same
 	output_interval=configfw['solvers'][0]['plotters'][0]['repeat'] 
 	max_cell_size=configref['solvers'][0]['maximum_mesh_size']
 	max_depth=configref['solvers'][0]['maximum_mesh_depth']
 	output_file=configref['solvers'][0]['adg']
+	print("outputfile: ",output_file)
 	
 	num_files=int((end_time+1e-9)//output_interval) #todo toint 
 	max_level=np.max(np.ceil(-np.log(max_cell_size/domain)/np.log(3)) )#includes level 0 so maybe np.floor would be better ! <-comment is false
@@ -337,7 +351,7 @@ if __name__=='__main__':
 	level_points=np.ceil(np.round(domain/cell_size,7))
 	assert (np.max(level_points)==max_pts)
 	
-	adjoints=adjoint_over_time(forward_file,adjoint_file,1,num_files)#TODO start at 0?
+	adjoints=adjoint_over_time(forward_file,adjoint_file,0,num_files)#TODO start at 0?
 	print("interpolated all adjoints to the forward grid")
 	percentcounter=0.0
 	for i in range(1,num_files-1):
@@ -348,8 +362,15 @@ if __name__=='__main__':
 	
 		onlypoints: vtk.vtkUnstructuredGrid=vtk.vtkUnstructuredGrid()
 		onlypoints.SetPoints(data.GetPoints())
-		for j in range(num_files-1-i):
-			magnitude=np.abs(np.sum(fQ[:,3:]*adjoints[j,:,3:], axis=1))  #scalar product for each point)
+		for j in range(num_files-i):
+			# fwvelmag=np.sqrt(np.sum(fQ[:,3:]*fQ[:,3:], axis=1))
+			# magnitude=np.abs(np.sum(fQ[:,3:]*adjoints[j,:,3:], axis=1)/(fwvelmag+fwvelmag.max()/1000))
+			# if(j!=0):
+				# magnitude=np.abs(np.sum(fQ[:, 3:]*adjoints[j, :, 3:], axis=1))	#scalar product for each point)
+			magnitude=np.abs(np.sum(fQ[:, :]*adjoints[j, :, :], axis=1))	#scalar product for each point)
+			# else:
+			# 	scaling=(np.max(adjoints[1, :, 3:])/np.max(adjoints[0,:,:2]))**2# normalizes sigma of first timestep to be the same
+			# 	magnitude=np.abs(np.sum(fQ[:, 3:]*adjoints[j, :, :2]*scaling, axis=1)) #To be used if sigma is set in adjoint
 			# magnitude=np.abs(np.sum(fQ*adjoints[j, :, :], axis=1))
 			# if magnitude.max()>0:
 			# 	impact=magnitude/magnitude.max()
@@ -361,7 +382,7 @@ if __name__=='__main__':
 				if use_amr:
 					amr=np.zeros((20, *impact.shape))
 				else:
-					refine=np.zeros_like(impact)			
+					refine=np.zeros_like(impact)
 			# if impact.max()>0:
 			# 	i_normalized=impact/impact.max()
 			# 	refine_steps2(refine, i_normalized)
@@ -400,11 +421,14 @@ if __name__=='__main__':
 		ref=np.stack(refs,axis=0)
 	else:
 		plot_numpy_array(refine, onlypoints)
-		quantiles=[1/3,1/9,1/27,1/81,1/243,1/729,1/2187]
+		quantiles=[1/6,1/12,1/27,1/81,1/243,1/729,1/2187]
+		# quantiles=[1/6,1/18,1/27,1/81,1/243,1/729,1/2187]
+		# quantiles=[1/45,1/60,1/27,1/81,1/243,1/729,1/2187]
 		ref=three_to_one_balancing(onlypoints, refine,level_points,max_depth,domain,offset,quantiles)
 		countrefs(ref)
 		
 	print("finished 3 to 1 balancing")
+	plotref(ref,domain,offset)
 	np.save(output_file, ref) #TODO maybe use smaller int
 	a=0
 
