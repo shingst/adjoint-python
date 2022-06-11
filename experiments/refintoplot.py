@@ -12,6 +12,7 @@ th="/home/sven/thesis/images/"
 
 plotrefsave(np.load(of+"pwaves/manual12.npy"),(30,15),(-5,0),th+"pw12manual.png",5,5,12,5)
 plotrefsave(np.load(of+"pwaves/inner12.npy"),(30,15),(-5,0),th+"pw12inner.png",5,5,12,5)
+plotrefsave(np.load(of+"pwaves/sigma12h.npy"),(30,15),(-5,0),th+"pw12h.png",5,5,12,5)
 
 
 
@@ -30,3 +31,11 @@ plotrefsave(np.load(of+"wel/inner11C.npy"),(30,15),(-5,0),th+"wel11C",5,5,11,2)
 plotrefsave(np.load(of+"wel/inner11D.npy"),(30,15),(-5,0),th+"wel11D",5,5,11,2)
 plotrefsave(np.load(of+"wel/inner11stressD.npy"),(30,15),(-5,0),th+"wel11stressD",5,5,11,2)
 plotrefsave(np.load(of+"wel/inner11stressC.npy"),(30,15),(-5,0),th+"wel11stressC",5,5,11,2)
+
+amrstr=np.load(of+"wel/amr11stressF.npy")
+plotrefsave(amrstr[6,:,:],(30,15),(-5,0),th+"amrstr11f6",5,5,11,2)
+plotrefsave(amrstr[7,:,:],(30,15),(-5,0),th+"amrstr11f7",5,5,11,2)
+plotrefsave(amrstr[8,:,:],(30,15),(-5,0),th+"amrstr11f8",5,5,11,2)
+plotrefsave(amrstr[9,:,:],(30,15),(-5,0),th+"amrstr11f9",5,5,11,2)
+plotrefsave(amrstr[10,:,:],(30,15),(-5,0),th+"amrstr11f10",5,5,11,2)
+plotrefsave(amrstr[11,:,:],(30,15),(-5,0),th+"amrstr11f11",5,5,11,2)
