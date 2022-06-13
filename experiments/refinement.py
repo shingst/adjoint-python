@@ -305,7 +305,7 @@ if __name__=='__main__':
 	from toolkit import Controller
 	from tools import tools
 
-	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/simple.exahype'] #TODO adapt path to forward.exahype 
+	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/forward.exahype'] #TODO adapt path to forward.exahype 
 	configfw=Controller().spec
 	tools.tools=[] # needed or it will be filled twice and the parser crashes
 	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/refined.exahype'] #TODO adapt path to refined.exahype
