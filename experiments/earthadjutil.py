@@ -15,7 +15,7 @@ def plotrefsave(ref: np.ndarray, domain, offset,name,p1x,p1y,p2x,p2y):  # TODO c
 	# plt.pcolor(xx,yy,ref.T,shading='auto',cmap="Blues",vmax=3,vmin=-1)
 	plt.pcolor(xx, yy, ref.T, shading='auto', cmap="YlGn", vmax=3, vmin=-1)
 	plt.plot(p1x, p1y, 'ro', markersize=12)
-	plt.plot(p2x, p2y, 'bo', markersize=12)
+	plt.plot(p2x, p2y, 'bX', markersize=18)
 	plt.xlabel('x in km')
 	plt.ylabel('y in km')
 	plt.tight_layout()

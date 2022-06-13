@@ -9,6 +9,7 @@ matplotlib.rcParams['mathtext.rm'] = 'Bitstream Vera Sans'
 matplotlib.rcParams['mathtext.it'] = 'Bitstream Vera Sans:italic'
 matplotlib.rcParams['mathtext.bf'] = 'Bitstream Vera Sans:bold'
 matplotlib.rcParams.update({'font.size': 28})
+# This file is used to create the manual refinements 
 
 # a=np.load("/home/sven/exa/adjoint/forward/output/bel/cutoff10thirds.npy")
 xn=237
@@ -28,7 +29,7 @@ b=np.zeros((yn,xn),dtype=int)
 # inner=Polygon([(8,0),(11.5,0),(5,6),(4,6),(4,4.5)])
 # outer=Polygon([(3.5,0),(12,0),(11,6),(3.5,6.5)])
 
-#Manual 12 wel
+#Manual 12 pwaves
 # inner=Polygon([(4.5,3.3),(12.5,3.3),(12.5,6.45),(4.5,6.45)])
 # outer=Polygon([(3.5,0.0),(13.5,0.0),(13.5,7.79),(3.5,7.79)])
 
@@ -38,10 +39,6 @@ inner=line.buffer(1.92)
 # outer=line.buffer(2.5) #11C
 outer=line.buffer(3.3) #11D
 
-# line=Polygon([(5.0,5.0),(11.0,2.0),(5.0+30/7,0.0)])
-# inner=line.buffer(1.57)
-# # outer=line.buffer(2.5) #11C #TODO not done
-# outer=line.buffer(3.2) #11D
 
 inner=shapely.affinity.translate(inner,5.0) #The algorithm does not work with offsets
 outer=shapely.affinity.translate(outer,5.0) #The algorithm does not work with offsets
@@ -91,14 +88,17 @@ def plotref(ref:np.ndarray,domain,offset):# TODO color in whole level1 cells ins
 	
 	
 # plotref(b.T,[xsize,ysize],[0.0,0.0]) #The algorithm does not work with offsets # -5,0 offset for wide/pwaves
-plotref(b.T,[xsize,ysize],[-5.0,0.0]) #The algorithm does not work with offsets # -5,0 offset for wide/pwaves
+# plotref(b.T,[xsize,ysize],[-5.0,0.0]) #The algorithm does not work with offsets # -5,0 offset for wide/pwaves
 countrefs(b)
 # a=0
-# bg=np.load("outputE/inner13a.npy")
+
+#! Unused experiment to try work with the scalar product value distribution
+
+# bg=np.load("outputE/rawinner11a.npy")
 # pcts=np.zeros(100)
 # for i in range(100):
 # 	pcts[i]=np.percentile(bg,i)
-# 	
+# 
 # plt.plot(np.arange(100),pcts)
 # plt.show()
 # 
@@ -111,9 +111,8 @@ countrefs(b)
 # plt.ylabel("frequency")
 # plt.semilogx()
 # plt.show()
-# 
-# # plt.hist(bg.flatten(),bins=10)
-# # plt.show()
-np.save("/home/sven/exa/adjoint/forward/output/wel/manualmirrir11D.npy",b.T)
+
+
+np.save("manual11D.npy",b.T)
 
 

@@ -1,4 +1,5 @@
 from earthadjutil import *
+# This file was used to create the plots in my thesis
 matplotlib.rcParams['mathtext.fontset'] = 'custom'
 matplotlib.rcParams['mathtext.rm'] = 'Bitstream Vera Sans'
 matplotlib.rcParams['mathtext.it'] = 'Bitstream Vera Sans:italic'

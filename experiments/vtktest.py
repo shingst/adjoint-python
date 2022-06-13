@@ -1,6 +1,7 @@
 import vtkmodules.all as vtk
 import numpy as np
 from vtkmodules.util import numpy_support
+#Old test file
 
 def readUnstructuredGrid(filename) -> vtk.vtkUnstructuredGrid:
 	reader=vtk.vtkUnstructuredGridReader()
