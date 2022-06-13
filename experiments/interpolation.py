@@ -300,21 +300,21 @@ def plotref(ref:np.ndarray,domain:np.ndarray,offset:np.ndarray):
 	
 	
 if __name__=='__main__':
-	sys.path.append("/home/sven/uni/mt/ExaHyPE-Engine/Toolkit/exahype")
+	sys.path.append("/home/sven/uni/mt/ExaHyPE-Engine/Toolkit/exahype")#TODO adapt path to ExaHyPE Toolkit python module
 	# import as module
 	from toolkit import Controller
 	from tools import tools
 
-	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/simple.exahype'] #! improve
+	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/simple.exahype'] #TODO adapt path to forward.exahype 
 	configfw=Controller().spec
 	tools.tools=[] # needed or it will be filled twice and the parser crashes
-	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/refined.exahype']  #! improve
+	sys.argv=[sys.argv[0], '/home/sven/uni/mt/ExaHyPE-Engine/adjoint/refined.exahype'] #TODO adapt path to refined.exahype
 	configref=Controller().spec
 	
-	#TODO handle paths
+	#TODO handle paths -$file.vtk has to be added after the filenamed specified in the .exahype file  
 	
-	forward_file=Template("/home/sven/exa/adjoint/forward/output/wel/wcoarse-$file.vtk")
-	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/wel11stress-$file.vtk")
+	forward_file=Template("/home/sven/exa/adjoint/forward/output/wel/coarse-$file.vtk") #TODO forward Template
+	adjoint_file=Template("/home/sven/exa/adjoint/adjoint/outputA/wel11stress-$file.vtk") #TODO adjoint Template
 	
 	print(forward_file.template,adjoint_file.template)
 
